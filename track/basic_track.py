@@ -22,9 +22,11 @@
 ##
 # @author Griswald Brooks
 
-## @file basic_control.py Script for doing basic teleop with the Botvac.
+## @file basic_track.py Script for doing basic cluster tracking.
 
+import time
 import serial
+import numpy as np
 
 
 def main():
@@ -32,35 +34,48 @@ def main():
     ser = serial.Serial('/dev/ttyACM0')
     print(ser.name)
     # Play sound to indicate script start.
-    ser.write(b'\rPlaySound 1\r')
+    ser.write('\rPlaySound 1\r')
+    ser.readline()
     # Setup test mode.
-    ser.write(b'TestMode On\r')
-    ser.write(b'SetMotor LWheelEnable\r')
-    ser.write(b'SetMotor RWheelEnable\r')
-    # Take basic commands.
-    cmd = ''
-    while cmd is not 'q':
-        cmd = raw_input('>>>')
-        if cmd is 'w':
-            ser.write(b'SetMotor 100 100 200 0\r')
-        elif cmd is 'ww':
-            ser.write(b'SetMotor 1000 1000 100 0\r')
-        elif cmd is 's':
-            ser.write(b'SetMotor -100 -100 200 0\r')
-        elif cmd is 'ss':
-            ser.write(b'SetMotor -1000 -1000 100 0\r')
-        elif cmd is 'a':
-            ser.write(b'SetMotor -100 100 200 0\r')
-        elif cmd is 'aa':
-            ser.write(b'SetMotor -1000 1000 100 0\r')
-        elif cmd is 'd':
-            ser.write(b'SetMotor 100 -100 200 0\r')
-        elif cmd is 'dd':
-            ser.write(b'SetMotor 1000 -1000 100 0\r')
+    ser.write('TestMode On\r')
+    ser.readline()
+    ser.write('SetLDSRotation On\r')
+    ser.readline()
+    ser.write('SetMotor LWheelEnable\r')
+    ser.readline()
+    ser.write('SetMotor RWheelEnable\r')
+    ser.readline()
+
+    # Get scan.
+    ser.write('GetLDSScan\r')
+    ser.readline()
+
+    # Flush buffer.
+    line_tok = ['start']
+    while line_tok[0] != 'AngleInDegrees':
+        line = ser.readline()
+        line_tok = line.split(',')
+
+    # Read scan data.
+    angles = []
+    ranges = []
+    while line_tok[0] != 'ROTATION_SPEED':
+        line = ser.readline()
+        line_tok = line.split(',')
+        if line_tok[0] != 'ROTATION_SPEED':
+            angles.append(float(line_tok[0]))
+            ranges.append(float(line_tok[1]))
+
+    ranges = np.array(ranges)/1000.0
+    angles = np.array(angles)*np.pi/180.0
+
+    print ranges
+    print angles
 
     # We're done.
     ser.write(b'TestMode Off\r')
     ser.close()
+    print('Done.')
 
 if __name__ == '__main__':
     main()

@@ -22,45 +22,27 @@
 ##
 # @author Griswald Brooks
 
-## @file basic_control.py Script for doing basic teleop with the Botvac.
+## @file convert_polar_to_cart.py Script for converting polar laser scan to cartesian coordinates.
 
-import serial
+import numpy as np
+import argparse
 
 
 def main():
-    # Open the serial port.
-    ser = serial.Serial('/dev/ttyACM0')
-    print(ser.name)
-    # Play sound to indicate script start.
-    ser.write(b'\rPlaySound 1\r')
-    # Setup test mode.
-    ser.write(b'TestMode On\r')
-    ser.write(b'SetMotor LWheelEnable\r')
-    ser.write(b'SetMotor RWheelEnable\r')
-    # Take basic commands.
-    cmd = ''
-    while cmd is not 'q':
-        cmd = raw_input('>>>')
-        if cmd is 'w':
-            ser.write(b'SetMotor 100 100 200 0\r')
-        elif cmd is 'ww':
-            ser.write(b'SetMotor 1000 1000 100 0\r')
-        elif cmd is 's':
-            ser.write(b'SetMotor -100 -100 200 0\r')
-        elif cmd is 'ss':
-            ser.write(b'SetMotor -1000 -1000 100 0\r')
-        elif cmd is 'a':
-            ser.write(b'SetMotor -100 100 200 0\r')
-        elif cmd is 'aa':
-            ser.write(b'SetMotor -1000 1000 100 0\r')
-        elif cmd is 'd':
-            ser.write(b'SetMotor 100 -100 200 0\r')
-        elif cmd is 'dd':
-            ser.write(b'SetMotor 1000 -1000 100 0\r')
+    # Get command line args.
+    parser = argparse.ArgumentParser()
+    parser.add_argument('scan')
+    args = parser.parse_args()
 
-    # We're done.
-    ser.write(b'TestMode Off\r')
-    ser.close()
+    # Grab the data out of the file.
+    scan_log = np.genfromtxt(args.scan, delimiter=',')
+
+    angles = np.radians(scan_log[:, 0])
+    ranges = scan_log[:, 1]/1000.0
+    x = ranges*np.cos(angles)
+    y = ranges*np.sin(angles)
+
+    np.savetxt('cart' + args.scan, np.transpose([x, y]), delimiter=',')
 
 if __name__ == '__main__':
     main()

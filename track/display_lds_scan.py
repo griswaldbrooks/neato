@@ -22,45 +22,43 @@
 ##
 # @author Griswald Brooks
 
-## @file basic_control.py Script for doing basic teleop with the Botvac.
+## @file display_lds_scan.py Script for displaying lds scan from file.
 
-import serial
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import argparse
+from segment_scan import Segmenter
 
 
 def main():
-    # Open the serial port.
-    ser = serial.Serial('/dev/ttyACM0')
-    print(ser.name)
-    # Play sound to indicate script start.
-    ser.write(b'\rPlaySound 1\r')
-    # Setup test mode.
-    ser.write(b'TestMode On\r')
-    ser.write(b'SetMotor LWheelEnable\r')
-    ser.write(b'SetMotor RWheelEnable\r')
-    # Take basic commands.
-    cmd = ''
-    while cmd is not 'q':
-        cmd = raw_input('>>>')
-        if cmd is 'w':
-            ser.write(b'SetMotor 100 100 200 0\r')
-        elif cmd is 'ww':
-            ser.write(b'SetMotor 1000 1000 100 0\r')
-        elif cmd is 's':
-            ser.write(b'SetMotor -100 -100 200 0\r')
-        elif cmd is 'ss':
-            ser.write(b'SetMotor -1000 -1000 100 0\r')
-        elif cmd is 'a':
-            ser.write(b'SetMotor -100 100 200 0\r')
-        elif cmd is 'aa':
-            ser.write(b'SetMotor -1000 1000 100 0\r')
-        elif cmd is 'd':
-            ser.write(b'SetMotor 100 -100 200 0\r')
-        elif cmd is 'dd':
-            ser.write(b'SetMotor 1000 -1000 100 0\r')
+    # Get command line args.
+    parser = argparse.ArgumentParser()
+    parser.add_argument('scan')
+    args = parser.parse_args()
 
-    # We're done.
-    ser.write(b'TestMode Off\r')
-    ser.close()
+    # Grab the data out of the file.
+    scan_log = np.genfromtxt(args.scan, delimiter=',')
+
+    ax = plt.subplot(111, projection='polar')
+    # ax.scatter(np.radians(scan_log[:, 0]), scan_log[:, 1], color='r')
+    ax.set_rmax(6000)
+    ax.grid(True)
+
+    ###
+    sgr = Segmenter()
+    sgr.add_scan(scan_log[:, 1], np.radians(scan_log[:, 0]))
+    [r_seg, a_seg] = sgr.get_segments()
+
+    # colors = cm.rainbow(np.linspace(0, 1, len(r_seg)))
+    colors = cm.rainbow(np.random.rand(len(r_seg), 1))
+    for r, a, c in zip(r_seg, a_seg, colors):
+        ax.scatter(a, r, color=c)
+        print r, a
+    ###
+
+    ax.set_title("A line plot on a polar axis", va='bottom')
+    plt.show()
 
 if __name__ == '__main__':
     main()
