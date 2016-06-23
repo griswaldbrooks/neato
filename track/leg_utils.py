@@ -22,41 +22,25 @@
 ##
 # @author Griswald Brooks
 
-## @file display_lds_scan.py Script for displaying lds scan from file.
+## @file leg_utils.py Module for finding legs in laser scans.
 
-import numpy as np
-from numpy import linalg as la
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import argparse
-from leg_utils import extract_legs_from_scan
+from segment_scan import Segmenter
+from segment_scan import get_centroids
+from segment_scan import filter_seg_gt
+from segment_scan import filter_seg_wider
 
 
-def main():
-    # Get command line args.
-    parser = argparse.ArgumentParser()
-    parser.add_argument('scan')
-    args = parser.parse_args()
+def extract_legs_from_scan(ranges, angles):
+    # Segment scan.
+    sgr = Segmenter()
+    sgr.add_scan(ranges, angles)
+    [r_seg, a_seg] = sgr.get_segments()
 
-    # Grab the data out of the file.
-    scan_log = np.genfromtxt(args.scan, delimiter=',')
+    # Do basic filtering
+    max_num = 20
+    max_width = 200  # mm
+    [r_seg, a_seg] = filter_seg_gt(r_seg, a_seg, max_num)
+    [r_seg, a_seg] = filter_seg_wider(r_seg, a_seg, max_width)
+    cens = get_centroids(r_seg, a_seg)
 
-    ax = plt.subplot(111, projection='polar')
-    ax.scatter(np.radians(scan_log[:, 0]), scan_log[:, 1], color='0.75')
-    ax.set_rmax(6000)
-    ax.grid(True)
-
-    [cens, r_seg, a_seg] = extract_legs_from_scan(scan_log[:, 1], np.radians(scan_log[:, 0]))
-
-    colors = cm.prism(np.random.rand(len(r_seg), 1))
-    for r, a, ctr, c in zip(r_seg, a_seg, cens, colors):
-        ax.scatter(a, r, color=c)
-        ax.scatter(np.arctan2(ctr[1], ctr[0]), la.norm(ctr), color=c, marker=">", edgecolor='black')
-        print r, a
-    ###
-
-    ax.set_title("A line plot on a polar axis", va='bottom')
-    plt.show()
-
-if __name__ == '__main__':
-    main()
+    return [cens, r_seg, a_seg]

@@ -22,41 +22,42 @@
 ##
 # @author Griswald Brooks
 
-## @file display_lds_scan.py Script for displaying lds scan from file.
+## @file command_robot.py Module for computing drive commands for the Botvac.
 
 import numpy as np
 from numpy import linalg as la
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import argparse
-from leg_utils import extract_legs_from_scan
 
 
-def main():
-    # Get command line args.
-    parser = argparse.ArgumentParser()
-    parser.add_argument('scan')
-    args = parser.parse_args()
+def get_wheel_vel(v, w, r):
+    """Function to get the wheel velocities for diff drive robot."""
+    v_l = v - w*r
+    v_r = v + w*r
 
-    # Grab the data out of the file.
-    scan_log = np.genfromtxt(args.scan, delimiter=',')
+    return [v_l, v_r]
 
-    ax = plt.subplot(111, projection='polar')
-    ax.scatter(np.radians(scan_log[:, 0]), scan_log[:, 1], color='0.75')
-    ax.set_rmax(6000)
-    ax.grid(True)
 
-    [cens, r_seg, a_seg] = extract_legs_from_scan(scan_log[:, 1], np.radians(scan_log[:, 0]))
+def get_wheel_cmds_to_rel_pose_triple(x, y, theta):
+    """Gives rotate, drive, rotate commands to a pose relative to its current pose."""
+    # Compute rotation, drive, rotation. Current orientation is 0 degrees.
+    robot_width = 245.0  # mm
+    r = robot_width/2.0
 
-    colors = cm.prism(np.random.rand(len(r_seg), 1))
-    for r, a, ctr, c in zip(r_seg, a_seg, cens, colors):
-        ax.scatter(a, r, color=c)
-        ax.scatter(np.arctan2(ctr[1], ctr[0]), la.norm(ctr), color=c, marker=">", edgecolor='black')
-        print r, a
-    ###
+    # Compute first orientation.
+    theta_1 = np.arctan2(y, x)
+    s1 = r*theta_1
+    l1 = -s1
+    r1 = s1
 
-    ax.set_title("A line plot on a polar axis", va='bottom')
-    plt.show()
+    # Compute drive length.
+    d = la.norm([x, y])
+    l2 = d
+    r2 = d
 
-if __name__ == '__main__':
-    main()
+    # Compute second orientation.
+    theta_2 = theta - theta_1
+    s2 = r*theta_2
+    l3 = -s2
+    r3 = s2
+
+    # return [[l1, r1], [l2, r2], [l3, r3]]
+    return [[l1 + l2 + l3, r1 + r2 + r3]]
