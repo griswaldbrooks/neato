@@ -216,7 +216,7 @@ def main():
 
     # Person starting pose.
     person_pose = np.array([500, 0, 0])
-
+    tracking = False
     while True:
         # Get scan.
         [ranges, angles] = get_scan(port_name)
@@ -229,21 +229,46 @@ def main():
             # Find the centroid closest to the person.
             cens_s = sorted(cens, key=lambda cand: la.norm(cand - person_pose[0:2]))
             if cens_s:
-                person_pose = np.array([cens_s[0][0], cens_s[0][1], 0])
-                print('person_pose = ' + str(person_pose))
+                # If the centroid is within some range of the previous, track it.
+                d_range = la.norm(cens_s[0] - person_pose[0:2])
+                if d_range < 100:
+                    # If this is the first time tracking, play the sound.
+                    if not tracking:
+                        ser = serial.Serial(port_name)
+                        ser.write('\rPlaySound 1\r')
+                        ser.close()
+                        tracking = True
 
-                # Get commands.
-                # command_to_rel_pose(port_name, 500, -200, -np.pi/2)
-                # command_to_rel_position(port_name, 500, -200)
-                person_range = la.norm(person_pose[0:2])
-                print('person_range = ' + str(person_range))
-                if (person_range > 500.0) and (person_range < 2500.0):
-                    # Range and speed limits.
-                    rng = [500, 2500]
-                    spd = [75, 350]
-                    speed = np.interp(person_range, rng, spd)
-                    print('speed = ' + str(speed))
-                    command_to_rel_position(port_name, person_pose[0]*0.1, person_pose[1]*0.1, speed)
+                    # Set pose.
+                    person_pose = np.array([cens_s[0][0], cens_s[0][1], 0])
+                    print('person_pose = ' + str(person_pose))
+
+                    # Get commands.
+                    # command_to_rel_pose(port_name, 500, -200, -np.pi/2)
+                    # command_to_rel_position(port_name, 500, -200)
+                    person_range = la.norm(person_pose[0:2])
+                    print('person_range = ' + str(person_range))
+                    if (person_range > 500.0) and (person_range < 2500.0):
+                        # Range and speed limits.
+                        rng = [500, 2500]
+                        spd = [75, 350]
+                        speed = np.interp(person_range, rng, spd)
+                        # print('speed = ' + str(speed))
+                        # command_to_rel_position(port_name, person_pose[0]*0.1, person_pose[1]*0.1, speed)
+
+                # If it is outside the range, lose tracking,
+                else:
+                    # Play the lost tracking sound.
+                    ser = serial.Serial(port_name)
+                    ser.write('\rPlaySound 3\r')
+                    ser.close()
+                    tracking = False
+                    # Reset pose.
+                    person_pose = np.array(500, 0, 0])
+                    print('person_pose = ' + str(person_pose))
+                    # Stop the robot.
+                    command_to_rel_position(port_name, 0, 0, 0)
+
 
     # We're done.
     teardown_robot(port_name)
