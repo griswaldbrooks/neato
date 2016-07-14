@@ -222,27 +222,28 @@ def main():
         [ranges, angles] = get_scan(port_name)
 
         # Find the legs.
-        [cens, r_seg, a_seg] = extract_legs_from_scan(ranges, angles)
-        print('cens = ' + str(cens))
+        if ranges.any():
+            [cens, r_seg, a_seg] = extract_legs_from_scan(ranges, angles)
+            print('cens = ' + str(cens))
 
-        # Find the centroid closest to the person.
-        cens_s = sorted(cens, key=lambda cand: la.norm(cand - person_pose[0:2]))
-        if cens_s:
-            person_pose = np.array([cens_s[0][0], cens_s[0][1], 0])
-            print('person_pose = ' + str(person_pose))
+            # Find the centroid closest to the person.
+            cens_s = sorted(cens, key=lambda cand: la.norm(cand - person_pose[0:2]))
+            if cens_s:
+                person_pose = np.array([cens_s[0][0], cens_s[0][1], 0])
+                print('person_pose = ' + str(person_pose))
 
-            # Get commands.
-            # command_to_rel_pose(port_name, 500, -200, -np.pi/2)
-            # command_to_rel_position(port_name, 500, -200)
-            person_range = la.norm(person_pose[0:2])
-            print('person_range = ' + str(person_range))
-            if (person_range > 500.0) and (person_range < 2500.0):
-                # Range and speed limits.
-                rng = [500, 2500]
-                spd = [75, 350]
-                speed = np.interp(person_range, rng, spd)
-                print('speed = ' + str(speed))
-                command_to_rel_position(port_name, person_pose[0]*0.1, person_pose[1]*0.1, speed)
+                # Get commands.
+                # command_to_rel_pose(port_name, 500, -200, -np.pi/2)
+                # command_to_rel_position(port_name, 500, -200)
+                person_range = la.norm(person_pose[0:2])
+                print('person_range = ' + str(person_range))
+                if (person_range > 500.0) and (person_range < 2500.0):
+                    # Range and speed limits.
+                    rng = [500, 2500]
+                    spd = [75, 350]
+                    speed = np.interp(person_range, rng, spd)
+                    print('speed = ' + str(speed))
+                    command_to_rel_position(port_name, person_pose[0]*0.1, person_pose[1]*0.1, speed)
 
     # We're done.
     teardown_robot(port_name)
