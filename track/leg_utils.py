@@ -37,8 +37,8 @@ def extract_legs_from_scan(ranges, angles):
     [r_seg, a_seg] = sgr.get_segments()
 
     # Do basic filtering
-    max_num = 20
-    max_width = 200  # mm
+    max_num = 40
+    max_width = 400  # mm
     [r_seg, a_seg] = filter_seg_gt(r_seg, a_seg, max_num)
     [r_seg, a_seg] = filter_seg_wider(r_seg, a_seg, max_width)
     cens = get_centroids(r_seg, a_seg)

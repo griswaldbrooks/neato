@@ -217,6 +217,7 @@ def main():
     # Person starting pose.
     person_pose = np.array([500, 0, 0])
     tracking = False
+    misses = 0
     while True:
         # Get scan.
         [ranges, angles] = get_scan(port_name)
@@ -231,13 +232,14 @@ def main():
             if cens_s:
                 # If the centroid is within some range of the previous, track it.
                 d_range = la.norm(cens_s[0] - person_pose[0:2])
-                if d_range < 100:
+                if d_range < 200:
                     # If this is the first time tracking, play the sound.
                     if not tracking:
                         ser = serial.Serial(port_name)
                         ser.write('\rPlaySound 1\r')
                         ser.close()
                         tracking = True
+                        misses = 0
 
                     # Set pose.
                     person_pose = np.array([cens_s[0][0], cens_s[0][1], 0])
@@ -254,20 +256,22 @@ def main():
                         spd = [75, 350]
                         speed = np.interp(person_range, rng, spd)
                         # print('speed = ' + str(speed))
-                        # command_to_rel_position(port_name, person_pose[0]*0.1, person_pose[1]*0.1, speed)
+                        command_to_rel_position(port_name, person_pose[0]*0.1, person_pose[1]*0.1, speed)
 
                 # If it is outside the range, lose tracking,
                 else:
                     # Play the lost tracking sound.
-                    ser = serial.Serial(port_name)
-                    ser.write('\rPlaySound 3\r')
-                    ser.close()
-                    tracking = False
-                    # Reset pose.
-                    person_pose = np.array(500, 0, 0])
+		    if tracking and (misses > 5):
+	                ser = serial.Serial(port_name)
+                        ser.write('\rPlaySound 3\r')
+                        ser.close()
+                        tracking = False
+                        # Reset pose.
+                        person_pose = np.array([500, 0, 0])
+                        # Stop the robot.
+                        command_to_rel_position(port_name, 0, 0, 0)
+                    misses += 1
                     print('person_pose = ' + str(person_pose))
-                    # Stop the robot.
-                    command_to_rel_position(port_name, 0, 0, 0)
 
 
     # We're done.
