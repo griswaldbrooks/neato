@@ -36,7 +36,7 @@ def setup_robot(port_name):
     ser = serial.Serial(port_name)
     print(ser.name)
     # Play sound to indicate script start.
-    ser.write('\rPlaySound 1\r')
+    ser.write('\rPlaySound soundid 1\r')
     ser.readline()
     # Setup test mode.
     ser.write('TestMode On\r')

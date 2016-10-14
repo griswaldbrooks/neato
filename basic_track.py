@@ -38,7 +38,7 @@ def setup_robot(port_name):
     ser = serial.Serial(port_name)
     print(ser.name)
     # Play sound to indicate script start.
-    ser.write('\rPlaySound 1\r')
+    ser.write('\rPlaySound soundid 1\r')
     print(ser.readline())
     # Setup test mode.
     ser.write('TestMode On\r')
@@ -119,7 +119,9 @@ def send_motor_cmd(port_name, left_wheel_in_mm, right_wheel_in_mm, vel):
     # Open the serial port.
     ser = serial.Serial(port_name)
     # Send command.
-    ser.write('\rsetmotor ' + str(left_wheel_in_mm) + ' ' + str(right_wheel_in_mm) + ' ' + str(vel) + '\r')
+    ser.write('\rsetmotor lwheeldist ' + str(left_wheel_in_mm) + 
+              ' rwheeldist ' + str(right_wheel_in_mm) + 
+              ' speed ' + str(vel) + '\r')
     ser.close()
 
 
@@ -236,7 +238,7 @@ def main():
                     # If this is the first time tracking, play the sound.
                     if not tracking:
                         ser = serial.Serial(port_name)
-                        ser.write('\rPlaySound 1\r')
+                        ser.write('\rPlaySound soundid 1\r')
                         ser.close()
                         tracking = True
                         misses = 0
@@ -263,7 +265,7 @@ def main():
                     # Play the lost tracking sound.
 		    if tracking and (misses > 5):
 	                ser = serial.Serial(port_name)
-                        ser.write('\rPlaySound 3\r')
+                        ser.write('\rPlaySound soundid 3\r')
                         ser.close()
                         tracking = False
                         # Reset pose.

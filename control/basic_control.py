@@ -32,7 +32,7 @@ def main():
     ser = serial.Serial('/dev/ttyACM0')
     print(ser.name)
     # Play sound to indicate script start.
-    ser.write(b'\rPlaySound 1\r')
+    ser.write(b'\rPlaySound soundid 1\r')
     # Setup test mode.
     ser.write(b'TestMode On\r')
     ser.write(b'SetMotor LWheelEnable\r')
@@ -42,21 +42,21 @@ def main():
     while cmd is not 'q':
         cmd = raw_input('>>>')
         if cmd is 'w':
-            ser.write(b'SetMotor 100 100 200 0\r')
+            ser.write(b'SetMotor lwheeldist 100 rwheeldist 100 speed 200 0\r')
         elif cmd is 'ww':
-            ser.write(b'SetMotor 1000 1000 100 0\r')
+            ser.write(b'SetMotor lwheeldist 1000 rhweeldist 1000 speed 100 0\r')
         elif cmd is 's':
-            ser.write(b'SetMotor -100 -100 200 0\r')
+            ser.write(b'SetMotor lwheeldist -100 rwheeldist -100 speed 200 0\r')
         elif cmd is 'ss':
-            ser.write(b'SetMotor -1000 -1000 100 0\r')
+            ser.write(b'SetMotor lwheeldist -1000 rwheeldist -1000 speed 100 0\r')
         elif cmd is 'a':
-            ser.write(b'SetMotor -100 100 200 0\r')
+            ser.write(b'SetMotor lwheeldist -100 rwheeldist 100 speed 200 0\r')
         elif cmd is 'aa':
-            ser.write(b'SetMotor -1000 1000 100 0\r')
+            ser.write(b'SetMotor lwheeldist -1000 rwheeldist 1000 speed 100 0\r')
         elif cmd is 'd':
-            ser.write(b'SetMotor 100 -100 200 0\r')
+            ser.write(b'SetMotor lwheeldist 100 rwheeldist -100 speed 200 0\r')
         elif cmd is 'dd':
-            ser.write(b'SetMotor 1000 -1000 100 0\r')
+            ser.write(b'SetMotor lwheeldist 1000 rwheeldist -1000 speed 100 0\r')
 
     # We're done.
     ser.write(b'TestMode Off\r')
