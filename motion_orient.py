@@ -33,11 +33,6 @@ import serial
 from time import sleep
 import numpy as np
 from numpy import linalg as la
-from track.leg_utils import extract_legs_from_scan
-# from track.segment_scan import Segmenter
-# from track.segment_scan import get_centroids
-# from track.segment_scan import filter_seg_gt
-# from track.segment_scan import filter_seg_wider
 from control.command_robot import get_wheel_cmds_to_rel_pose_triple
 
 
@@ -123,6 +118,27 @@ def get_odom(port_name):
     return [w_l, w_r]
 
 
+def get_pose(port_name):
+    # Open the serial port.
+    ser = serial.Serial(port_name)
+
+    # Get odom.
+    ser.write('getrobotpos smooth\r')
+
+    # Flush buffer.
+    line_tok = ['start']
+    while line_tok[0] != 'Robot Smooth pose':
+        line = ser.readline()
+        line_tok = line.split(':')
+
+    pose_str = line_tok[1].split(',')
+    x = float(pose_str[0].split('=')[1])
+    y = float(pose_str[1].split('=')[1])
+    theta = float(pose_str[2].split('=')[1])
+
+    return [x, y, theta]
+
+
 def send_motor_cmd(port_name, left_wheel_in_mm, right_wheel_in_mm, vel):
     # Open the serial port.
     ser = serial.Serial(port_name)
@@ -166,32 +182,36 @@ def command_to_rel_pose(port_name, x, y, theta):
         wait_for_drive_completion(port_name, cmd[0], cmd[1])
 
 
-def command_to_orientation(port_name, x, y, speed):
-    robot_width = 245.0  # mm
-    robot_radius = robot_width/2.0
-    theta_err = np.arctan2(y, x)
-    robot_pose = np.array([0.0, 0.0, 0.0])
-    goal_pose = np.array([x, y, theta_err])
-    dt = 0.1
-    [init_w_l, init_w_r] = get_odom(port_name)
-    pose_err = goal_pose - robot_pose
-    while np.absolute(theta_err) > 0.2:
-        # Compute relative pose.
-        [w_l, w_r] = get_odom(port_name)
-        dw_l = w_l - init_w_l
-        dw_r = w_r - init_w_r
-        robot_pose = get_change_in_pose(dw_l, dw_r)
-        # Pose error.
-        pose_err = goal_pose - robot_pose
-        theta_err = pose_err[2]
-        # Compute orientation.
-        theta = np.arctan2(pose_err[1], pose_err[0])
-        s_theta = robot_radius*theta
+def shortest_angular_distance(angle1, angle2):
+    """
+    Finds the signed smallest angles between two angles.
+    Returns angle2 wrt angle1 as in:
+        angle1 = 45 angle2 = 30 returns -15
 
-        s_l = -s_theta
-        s_r = s_theta
+    """
+    da = angle2 - angle1
+    return (da + 180.0) % 360.0 - 180.0
+
+
+def command_to_orientation(port_name, theta, speed):
+    goal_theta = theta
+    theta_err = goal_theta
+    [x, y, robot_theta] = get_pose(port_name)
+    dt = 0.1
+    while np.absolute(theta_err) > 1.0:
+        [x, y, robot_theta] = get_pose(port_name)
+        print("robot_theta = " + str(robot_theta))
+        # Pose error.
+        theta_err = shortest_angular_distance(robot_theta, goal_theta)
+        print("theta_err = " + str(theta_err))
+        s_l = -2.0*theta_err
+        s_r = 2.0*theta_err
         send_motor_cmd(port_name, s_l, s_r, speed)
         sleep(dt)
+
+    send_motor_cmd(port_name, 1, 1, 1)
+    send_motor_cmd(port_name, 0, 0, 0)
+    sleep(0.5)
 
 
 def command_to_rel_position(port_name, x, y, speed):
@@ -283,7 +303,7 @@ def find_big_diff_pt(ranges1, ranges2):
     pt = np.array([np.cos(ndx), np.sin(ndx)])
     pt *= ranges1[ndx]
 
-    return pt
+    return [pt, ndx]
 
 
 def main():
@@ -291,12 +311,7 @@ def main():
     port_name = '/dev/ttyACM0'
     setup_robot(port_name)
 
-    # Person starting pose.
-    person_pose = np.array([500, 0, 0])
-    tracking = False
-    misses = 0
     # Scan to compare other to for motions.
-    track = False
     time.sleep(10)
     print("Watching.")
     [base_ranges, angles] = get_scan(port_name)
@@ -311,66 +326,17 @@ def main():
             ser = serial.Serial(port_name)
             ser.write('\rPlaySound soundid 1\r')
             ser.close()
-            point = find_big_diff_pt(base_ranges, ranges)
-            command_to_orientation(port_name, point[0], point[1], 100)
-            base_ranges = ranges
-
-        if track:
-            # Find the legs.
-            if ranges.any():
-                [cens, r_seg, a_seg] = extract_legs_from_scan(ranges, angles)
-                print('cens = ' + str(cens))
-
-                # Find the centroid closest to the person.
-                cens_s = sorted(cens,
-                                key=lambda cand: la.norm(cand - person_pose[0:2]))
-                if cens_s:
-                    # If the centroid is within some range of the previous,
-                    # then track it.
-                    d_range = la.norm(cens_s[0] - person_pose[0:2])
-                    if d_range < 200:
-                        # If this is the first time tracking, play the sound.
-                        if not tracking:
-                            ser = serial.Serial(port_name)
-                            ser.write('\rPlaySound soundid 1\r')
-                            ser.close()
-                            tracking = True
-                            misses = 0
-
-                        # Set pose.
-                        person_pose = np.array([cens_s[0][0], cens_s[0][1], 0])
-                        print('person_pose = ' + str(person_pose))
-
-                        # Get commands.
-                        # command_to_rel_pose(port_name, 500, -200, -np.pi/2)
-                        # command_to_rel_position(port_name, 500, -200)
-                        person_range = la.norm(person_pose[0:2])
-                        print('person_range = ' + str(person_range))
-                        if (person_range > 500.0) and (person_range < 2500.0):
-                            # Range and speed limits.
-                            rng = [500, 2500]
-                            spd = [75, 350]
-                            speed = np.interp(person_range, rng, spd)
-                            # print('speed = ' + str(speed))
-                            command_to_rel_position(port_name,
-                                                    person_pose[0]*0.1,
-                                                    person_pose[1]*0.1,
-                                                    speed)
-
-                    # If it is outside the range, lose tracking,
-                    else:
-                        # Play the lost tracking sound.
-                        if tracking and (misses > 5):
-                            ser = serial.Serial(port_name)
-                            ser.write('\rPlaySound soundid 3\r')
-                            ser.close()
-                            tracking = False
-                            # Reset pose.
-                            person_pose = np.array([500, 0, 0])
-                            # Stop the robot.
-                            command_to_rel_position(port_name, 0, 0, 0)
-                        misses += 1
-                        print('person_pose = ' + str(person_pose))
+            [point, rel_angle] = find_big_diff_pt(base_ranges, ranges)
+            [x, y, robot_theta] = get_pose(port_name)
+            theta = rel_angle + robot_theta
+            print("rel_angle = " + str(rel_angle))
+            print("robot_theta = " + str(robot_theta))
+            print("theta = " + str(theta))
+            command_to_orientation(port_name, theta, 100)
+            ser = serial.Serial(port_name)
+            ser.write('\rPlaySound soundid 3\r')
+            ser.close()
+            [base_ranges, angles] = get_scan(port_name)
 
     # We're done.
     teardown_robot(port_name)
