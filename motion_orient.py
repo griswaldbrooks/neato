@@ -35,6 +35,8 @@ import numpy as np
 from numpy import linalg as la
 from control.command_robot import get_wheel_cmds_to_rel_pose_triple
 
+from picamera import PiCamera
+
 
 def setup_robot(port_name):
     # Open the serial port.
@@ -311,6 +313,12 @@ def main():
     port_name = '/dev/ttyACM0'
     setup_robot(port_name)
 
+    camera = PiCamera()
+    camera.resolution = (640, 480)
+    camera.framerate = 30
+    camera.vflip = True
+    camera.hflip = True
+
     # Scan to compare other to for motions.
     time.sleep(10)
     print("Watching.")
@@ -332,11 +340,14 @@ def main():
             print("rel_angle = " + str(rel_angle))
             print("robot_theta = " + str(robot_theta))
             print("theta = " + str(theta))
-            command_to_orientation(port_name, theta, 100)
+            command_to_orientation(port_name, theta, 200)
             ser = serial.Serial(port_name)
             ser.write('\rPlaySound soundid 3\r')
             ser.close()
             [base_ranges, angles] = get_scan(port_name)
+            foldername = "images"
+            picturename = str(time.clock())
+            camera.capture(foldername + '/' + picturename + '.jpg')
 
     # We're done.
     teardown_robot(port_name)
